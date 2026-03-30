@@ -8,7 +8,7 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
     groq_api_key: str = ""
-    upload_dir: str = "./uploads"
+    upload_dir: str = "../uploads"
 
     class Config:
         env_file = ".env"

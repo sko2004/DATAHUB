@@ -6,119 +6,162 @@
   [![React Vite](https://img.shields.io/badge/Frontend-React_Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
   [![PostgreSQL](https://img.shields.io/badge/Database-PostgreSQL-336791?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/)
   [![Groq LLaMA3](https://img.shields.io/badge/AI-Groq_LLaMA_3-f55036?style=for-the-badge)](https://groq.com/)
+
 </div>
 
 <br/>
 
 ## 📖 1. Executive Summary
-**DataHub** is a distributed version control system (VCS) engineered specifically for high-volume binary datasets and machine learning models. Unlike traditional source control systems (e.g., Git) which degrade in performance with large binary files, DataHub utilizes a **Content-Addressable Storage (CAS)** architecture backed by a PostgreSQL relational database. The system provides atomic versioning, automatic data deduplication, and granular lineage tracking for AI/ML workflows via both a **React-based Graphical Interface** and a **Native Python Command Line Interface (CLI)**.
+
+**DataHub** is a high-performance, distributed version control system (VCS) engineered specifically for high-volume binary datasets and machine learning models. Unlike traditional source control systems (e.g., Git) which struggle with 10GB+ binary files, DataHub utilizes a **Content-Addressable Storage (CAS)** architecture backed by a PostgreSQL **Merkle Directed Acyclic Graph (DAG)**.
+
+The system provide atomic versioning, O(1) deduplication, and automated metadata extraction via both a **React-based Glassmorphism Dashboard** and a **Native Python CLI**.
 
 ---
 
-## 🛑 2. Problem Statement
-In modern machine learning pipelines, the *"Reproducibility Crisis"* is a significant bottleneck. While logic code is well-versioned via Git, the associated datasets (gigabytes in size) and model weights are often managed manually. This natively leads to:
+## 🏗️ 2. Detailed Module Architecture
 
-* 🚨 **Redundancy:** Massive storage waste due to saving multiple copies of slightly modified datasets.
-* 🔗 **Loss of Lineage:** Inability to mathematically prove which dataset version produced a specific model array.
-* ⚡ **Concurrency Issues:** Race conditions when multiple researchers attempt to modify data registries simultaneously.
+### **Module 1: DAG Architecture & Schema Design**
+
+The foundational versioning layer built on PostgreSQL.
+
+* **Merkle Commit Chain**: Every commit hash is a deterministic function of `(blob_hash + parent_hash + timestamp + message)`, making history cryptographically tamper-evident.
+* **Recursive CTE Traversal**: Implemented PostgreSQL recursive CTEs for full ancestry queries in a single SQL round-trip.
+* **Tree Snapshot Model**: Each commit stores a `tree_hash` representing the complete repository state, enabling instant rollback to any historical point.
+* **Atomic Transactions**: Push operations (blob write + metadata index + commit record) are wrapped in a single DB transaction.
+
+### **Module 2: Storage Engine & CAS Deduplication**
+
+The binary data layer — zero-redundancy by design.
+
+* **SHA-256 Content Addressing**: Every file's identity is its content hash; renaming a file costs zero additional storage.
+* **O(1) Deduplication**: Before any write, the hash is looked up; if found, only a new DB pointer is created.
+* **Storage Quotas**: Per-user disk quotas (Default: 100MB) enforced before any write operation.
+* **Garbage Collection**: Admin-triggered GC identifies and removes blobs no longer referenced by any commit tree.
+
+### **Module 3: Client-Side CLI**
+
+A production-ready terminal interface with full platform parity.
+
+* **Full Session Management**: `login`, `whoami`, `logout` with local JWT caching.
+* **Statistical Diffing**: `diff <commit_a> <commit_b>` provides column-level statistical comparisons.
+* **Machine-Readable Output**: Global `--json` flag for CI/CD and automation script integration.
+
+### **Module 4: High-Performance Networking**
+
+Hardened against memory exhaustion at any file size.
+
+* **64 KB Chunked Streaming**: `shutil.copyfileobj()` processes uploads/downloads sequentially; RAM usage remains O(1) even for 50GB files.
+* **Background Tasks**: Metadata extraction and LLaMA-3 summarization are dispatched asynchronously; server returns `202 Accepted` immediately.
+* **Streaming Downloads**: File pulls are streamed directly to disk on the client without full buffering.
+
+### **Module 5: Metadata Extraction & AI Summarization**
+
+Automatically triggered on every push.
+
+* **Deep Statistical Profiling**: mean, median, mode, SD, skewness, kurtosis, and null percentages via Pandas/SciPy.
+* **Data Quality Detection**: Automated detection of duplicate row counts and schema cardinality.
+* **AI Summarization**: Generates a 3-sentence natural language report via **LLaMA-3** to highlight data quality issues.
+* **Interactive AI Agent**: Chat with your data directly from the terminal or dashboard.
+
+### **Module 6: Query Language & Reporting**
+
+Domain-specific filtering engine built on PostgreSQL JSONB binary indexing.
+
+* **Metric Filtering**: `log --metric 'accuracy > 0.95'` returns all matching commits.
+* **Compound Queries**: Supports AND/OR combinations across multiple metrics (e.g., `accuracy > 0.9, loss < 0.1`).
+* **Time-Range Filtering**: Restrict commit history to specific date windows using ISO-8601 strings.
 
 ---
 
-## 🧠 3. System Architecture & Database Logic
-The core innovation of DataHub lies in its implementation of a **Merkle Directed Acyclic Graph (DAG)** within a PostgreSQL environment to ensure data integrity and storage efficiency at an enterprise scale.
+## 💻 3. Comprehensive CLI Reference
 
-### The Content-Addressable Storage (CAS) Model
-DataHub actively separates the logical state of a project from its physical storage:
-* 📉 **O(1) Deduplication:** When a file is committed, the API natively computes its `SHA-256` hash. If the exact hash already exists in the blobs registry, the physical upload stream is skipped entirely, and only a new pointer reference is created.
-* 🔒 **Immutable Blob Storage:** Binary objects are stored via our FastAPI high-performance streaming protocol and indexed strictly by their hash. Data can never be silently corrupted.
+The DataHub CLI is a production-ready interface for interacting with the platform.
 
-### The Database Schema (DBMS Core)
-<details>
-<summary><b>Click to expand architecture details</b></summary>
+### Authentication & Session Management
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `login` | Authenticate & save JWT locally | `python datahub_cli.py login <user> <pass>` |
+| `whoami` | Display active user and role | `python datahub_cli.py whoami` |
+| `logout` | Securely clear session token | `python datahub_cli.py logout` |
 
-* **`commits` Table:** Implements a recursive relationship (`parent_hash` FK) to mathematically build the entire version history tree backward.
-* **`blobs` Table:** High-fidelity tracking of file sizes, formats, and absolute storage locations bridging to the `commits` tree.
-* **`metadata` Table:** A highly queryable index containing rich `JSONB` structures representing statistical properties (row counts, column datatypes, distributions) seamlessly extracted upon upload.
+### Statistics & Version Control
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `push` | Stream upload dataset & index | `python datahub_cli.py push "data.csv" "proj" -m "update"` |
+| `pull` | Download specific version by ID | `python datahub_cli.py pull <id> -o "./data.csv"` |
+| `log` | View history with metric filters | `python datahub_cli.py log "proj" --metric "acc > 0.9"` |
+| `diff` | Statistical comparison of commits | `python datahub_cli.py diff <hash1> <hash2>` |
 
-</details>
+### Branching & Collaboration
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `branch list` | List all branches in a project | `python datahub_cli.py branch list "proj"` |
+| `branch create`| Initialize a new branch pointer | `python datahub_cli.py branch create "proj" "dev"` |
+| `branch delete`| Remove a branch pointer | `python datahub_cli.py branch delete "proj" "dev"` |
 
----
+### Pull Requests (PR) Workflow
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `pr list` | View open merge proposals | `python datahub_cli.py pr list "proj"` |
+| `pr create` | Propose merge from src to target | `python datahub_cli.py pr create "proj" "Title" "dev" "main"` |
+| `pr merge` | Execute final Merkle DAG merge | `python datahub_cli.py pr merge <pr_id>` |
 
-## ⚙️ 4. Functional Modules (Technical Scope Mapping)
-
-The backend systems of DataHub are explicitly divided into 6 distinct engineering modules. All aspects have been successfully mapped to the active architecture:
-
-| Module | Core Responsibility | Physical Implementation |
-|:---:|---|---|
-| **1** | **DAG Architecture & Schema Design**: Implementation of recursive SQL schemas (CTEs). | Located in `backend/db_setup.sql`. |
-| **2** | **Storage Engine & Deduplication Algorithms**: Optimized "Put/Get" system hashing SHA-256 strings. | Located in `metadata_extractor.py`. |
-| **3** | **Client-Side CLI**: Python-facing terminal configurations (`datahub init, push, pull`). | Handled by `datahub_cli.py`. |
-| **4** | **High-Performance Networking**: Sequential, chunk-based binary streams for 10GB+ file protections. | Parsed via `shutil.copyfileobj` in router endpoints. |
-| **5** | **Metadata Extraction & Indexing**: Automated parsing logic indexing CSV/JSON/Parquet distributions. | Active inside `metadata_extractor.py` Pandas engine. |
-| **6** | **Query Language & Reporting Engine**: Dynamic domain-specific SQL generating command queries over dataset filters. | Accessible via `datahub_cli.py log --metric`. |
-
----
-
-## 🛠️ 5. Technical Stack
-
-> **Database Engine:** PostgreSQL *(Recursive CTE modeling and native `JSONB`)*  
-> **Backend Processing:** Python / FastAPI *(High-concurrency streaming handles)*  
-> **AI Orchestration Framework:** Groq LLaMA-3 *(Contextualizing semantic data via LLM)*  
-> **Graphical Frontend:** React / Vite *(Glassmorphism SPA)*  
-> **CLI Client Ecosystem:** Python / Argparse  
+### AI Assistant & Scripting
+| Command | Description | Example |
+| :--- | :--- | :--- |
+| `chat` | LLaMA-3 conversation about data | `python datahub_cli.py chat "Why is accuracy low?" --id <id>` |
+| `--json` | Global flag for JSON output | `python datahub_cli.py log "proj" --json` |
 
 ---
 
-## 💻 6. Execution & Deployment Guide
+## 🛠️ 4. Technical Execution & Deployment
 
-This workspace is cleanly configured into two exact sub-components (`/frontend/` and `/backend/`).
+### Database Initialization
 
-### Step 1: Initialize Database & Roles
-Launch your Postgres engine initialized on port `5432`.
-```sql
-CREATE DATABASE datahub_db;
-\c datahub_db
-\i backend/db_setup.sql
-```
+1. Ensure PostgreSQL is running on `5432`.
+2. Create the database: `CREATE DATABASE datahub_db;`
+3. Run schema setup: `psql -d datahub_db -f backend/db_setup.sql`
 
-### Step 2: Start the Backend (API Server)
-Ensure `backend/.env` is configured stringing to your DB.
+### Backend Setup (FastAPI)
+
 ```bash
 cd backend
 python -m venv venv
-# Windows: .\venv\Scripts\activate
-# Mac: source venv/bin/activate
+# Windows: .\venv\Scripts\activate | Mac: source venv/bin/activate
 pip install -r requirements.txt
 python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
 ```
 
-### Step 3: Launch the React Dashboard
-Open a new terminal tab:
+### Frontend Setup (React/Vite)
+
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-### Step 4: Using the Python CLI Interface
-Interact manually with DataHub bypassing the React implementation entirely using the custom Module 3 script:
+---
 
-```bash
-# 1. Authenticate session keys natively
-python datahub_cli.py login analyst_user Analyst@123
+## 🔒 5. Security (Role-Based Access Control)
 
-# 2. Send files via multi-part data streams (Triggers Mod 2, 4 & 5)
-python datahub_cli.py push "dataset.csv" "cli-project" -m "Initial upload" --branch "main"
+DataHub implements strict RBAC at the database and API level:
 
-# 3. Request dynamic DAG metrics mapping (Triggers Mod 1 & 6)
-python datahub_cli.py log "cli-project" --metric "accuracy > 0.90"
-```
+* 👑 **Admin**: Full access to all projects, audit logs, and Garbage Collection.
+* 📊 **Analyst**: Can upload data, update metrics, and query metadata.
+* 👁 **Viewer**: Read-only access to logs and project history.
 
 ---
 
-## 🎯 7. Conclusion
-DataHub successfully demonstrates an incredibly advanced proficiency in Database Management Systems. By actively applying complex mathematical data structures natively within a relational model, the ecosystem solves a critical real-world infrastructure problem prioritizing absolute data integrity, massive storage optimization, and complete system scalability. 
+## 🎯 6. Project Evaluation Notice
+
+**Key Deliverables Included:**
+
+- Atomic Merkle-DAG Versioning.
+- Automated Metadata extraction (Module 5).
+- Integrated LLaMA-3 Virtual Assistant.
+- High-performance binary streaming (Module 4).
 
 <div align="center">
-  <b>D A T A H U B</b>
+  <b>D A T A H U B</b> — <i>Built for Data-Driven Engineering</i>
 </div>

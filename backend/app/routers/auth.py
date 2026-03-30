@@ -141,3 +141,21 @@ def list_users(db: Session = Depends(get_db)):
     """Admin-only: list all users."""
     users = db.query(User).all()
     return [{"id": u.id, "username": u.username, "email": u.email, "role": u.role} for u in users]
+
+
+@router.get("/audit", dependencies=[Depends(require_role("admin"))])
+def get_audit_logs(db: Session = Depends(get_db)):
+    """Admin-only: list system audit logs."""
+    logs = db.query(AuditLog, User.username).join(User, AuditLog.user_id == User.id).order_by(AuditLog.performed_at.desc()).limit(100).all()
+    return [
+        {
+            "id": l.AuditLog.id,
+            "user": l.username,
+            "action": l.AuditLog.action,
+            "table_name": l.AuditLog.table_name,
+            "record_id": l.AuditLog.record_id,
+            "details": l.AuditLog.details,
+            "performed_at": l.AuditLog.performed_at.isoformat(),
+        }
+        for l in logs
+    ]

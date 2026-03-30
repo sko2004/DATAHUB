@@ -408,3 +408,192 @@ td {
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255,255,255,0.2);
 }
+
+/* Dataset Detail View */
+.dataset-detail {
+  animation: fadeIn 0.4s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.data-preview-table-container {
+  overflow-x: auto;
+  border-radius: var(--radius-lg);
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid var(--border-light);
+  box-shadow: inset 0 0 20px rgba(0,0,0,0.3);
+}
+
+.data-preview-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: 'JetBrains Mono', 'Fira Code', monospace;
+  font-size: 0.85rem;
+}
+
+.data-preview-table th {
+  background: rgba(255, 255, 255, 0.03);
+  padding: 14px 18px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  border-bottom: 2px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.data-preview-table td {
+  padding: 12px 18px;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border-light);
+  white-space: nowrap;
+}
+
+.data-preview-table tr:hover td {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.detail-header {
+  margin-bottom: 2.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+}
+
+.stat-card.compact {
+  padding: 1rem;
+}
+
+.stat-card.compact .stat-value {
+  font-size: 1.5rem;
+}
+
+.dataset-card {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dataset-card:hover {
+  transform: translateX(6px);
+  border-color: var(--accent-primary);
+  background: linear-gradient(to right, rgba(99, 102, 241, 0.05), transparent);
+}
+
+/* DBA Console Specific Styles */
+.th-cell {
+  text-align: left;
+  padding: 16px;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  border-bottom: 1px solid var(--border-light);
+}
+
+.td-cell {
+  padding: 16px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.9rem;
+}
+
+.td-cell.muted {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.td-cell.small {
+  font-size: 0.75rem;
+  font-family: 'JetBrains Mono', monospace;
+  opacity: 0.7;
+}
+
+.tr-row:hover {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.commit-card {
+  padding: 1.25rem;
+  transition: transform 0.2s ease;
+}
+
+.commit-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Markdown Context Styles */
+.markdown-container {
+  line-height: 1.6;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.markdown-container h1, .markdown-container h2, .markdown-container h3 {
+  margin: 1.5rem 0 1rem;
+  color: white;
+}
+
+.markdown-container p {
+  margin-bottom: 1rem;
+  color: #d1d5db;
+}
+
+.markdown-container ul, .markdown-container ol {
+  margin-bottom: 1rem;
+  padding-left: 1.5rem;
+}
+
+.markdown-container li {
+  margin-bottom: 0.5rem;
+}
+
+.markdown-container table {
+  width: 100%;
+  border-collapse: collapse;
+  margin: 1.5rem 0;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border: 1px solid var(--border-light);
+}
+
+.markdown-container th {
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--accent-primary);
+  font-weight: 700;
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 12px;
+  border-bottom: 2px solid var(--border-light);
+}
+
+.markdown-container td {
+  padding: 12px;
+  border-bottom: 1px solid var(--border-light);
+  font-size: 0.9rem;
+}
+
+.markdown-container tr:last-child td {
+  border-bottom: none;
+}
+
+.markdown-container code {
+  background: rgba(255, 255, 255, 0.1);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 0.85rem;
+}
+
+.markdown-container strong {
+  color: white;
+  font-weight: 700;
+}
+
+.markdown-container blockquote {
+  border-left: 4px solid var(--accent-primary);
+  padding-left: 1rem;
+  margin: 1rem 0;
+  font-style: italic;
+  color: var(--text-secondary);
+}

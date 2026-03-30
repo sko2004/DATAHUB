@@ -33,12 +33,13 @@ async def ai_chat(
         record = db.query(Metadata).filter(Metadata.id == req.metadata_id).first()
         if record:
             import json
-            context = f"""Dataset: {record.file_name} ({record.file_type.upper()})
-Rows: {record.row_count}, Columns: {record.column_count}
-Schema: {json.dumps(record.columns_schema, indent=2) if record.columns_schema else 'N/A'}
-Statistics: {json.dumps(record.statistics, indent=2) if record.statistics else 'N/A'}
-Custom Metrics: {json.dumps(record.custom_metrics) if record.custom_metrics else 'None'}
-AI Summary: {record.ai_summary or 'N/A'}"""
+            st = record.stats or {}
+            context = f"""Dataset: {st.get("file_name")} ({str(st.get("file_type")).upper()})
+Rows: {st.get("row_count")}, Columns: {st.get("column_count")}
+Schema: {json.dumps(st.get("columns_schema"), indent=2) if st.get("columns_schema") else 'N/A'}
+Statistics: {json.dumps(st.get("statistics"), indent=2) if st.get("statistics") else 'N/A'}
+Custom Metrics: {json.dumps(st.get("custom_metrics")) if st.get("custom_metrics") else 'None'}
+AI Summary: {st.get("ai_summary") or 'N/A'}"""
 
     answer = await chat_with_ai(req.question, context)
     return {"answer": answer, "metadata_id": req.metadata_id}

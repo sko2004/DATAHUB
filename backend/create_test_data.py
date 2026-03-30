@@ -165,6 +165,10 @@ def main():
 
     token = get_token()
 
+    data_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
+    os.makedirs(data_dir, exist_ok=True)
+    import shutil
+
     with tempfile.TemporaryDirectory() as tmpdir:
 
         # ── PROJECT 1: ML Classification ──────────────────────────
@@ -173,11 +177,13 @@ def main():
         # Commit 1: raw iris data
         p1 = os.path.join(tmpdir, "iris_raw.csv")
         make_iris_csv(p1)
+        shutil.copy(p1, os.path.join(data_dir, "iris_raw.csv"))
         upload_file(token, "ml-classification", "Add raw Iris dataset v1.0", p1)
 
         # Commit 2: model training metrics
         p2 = os.path.join(tmpdir, "training_metrics.csv")
         make_model_metrics_csv(p2)
+        shutil.copy(p2, os.path.join(data_dir, "training_metrics.csv"))
         upload_file(
             token, "ml-classification",
             "Add model training logs — epoch 1-50",
@@ -188,6 +194,7 @@ def main():
         # Commit 3: same iris file again (dedup test)
         p3 = os.path.join(tmpdir, "iris_raw_v2.csv")
         make_iris_csv(p3)   # same content → duplicate blob
+        shutil.copy(p3, os.path.join(data_dir, "iris_raw_v2.csv"))
         upload_file(token, "ml-classification", "Re-commit iris dataset (dedup test)", p3, branch="experiment")
 
         # ── PROJECT 2: E-commerce Analytics ────────────────────────
@@ -195,6 +202,7 @@ def main():
 
         p4 = os.path.join(tmpdir, "sales_q1.csv")
         make_sales_csv(p4)
+        shutil.copy(p4, os.path.join(data_dir, "sales_q1.csv"))
         upload_file(token, "ecommerce-analytics", "Add Q1 2024 sales data", p4,
                     custom_metrics={"total_revenue_usd": 1245000, "avg_order_value": 249.0})
 
@@ -203,6 +211,8 @@ def main():
 
         p5 = os.path.join(tmpdir, "sensor_readings.json")
         make_sensor_json(p5)
+        with open(p5, "r") as f:
+            pd.DataFrame(json.load(f)).to_csv(os.path.join(data_dir, "sensor_readings.csv"), index=False)
         upload_file(token, "iot-sensor-monitoring", "Batch sensor readings 2024-Q1",
                     p5, custom_metrics={"anomaly_rate": 0.03, "uptime_pct": 99.7})
 
@@ -211,6 +221,7 @@ def main():
 
         p6 = os.path.join(tmpdir, "churn_dataset.parquet")
         make_churn_parquet(p6)
+        pd.read_parquet(p6).to_csv(os.path.join(data_dir, "churn_dataset.csv"), index=False)
         upload_file(token, "churn-prediction", "Initial churn dataset with AUC scores",
                     p6, custom_metrics={"model_auc": 0.87, "churn_rate": 0.27, "precision": 0.84, "recall": 0.79})
 

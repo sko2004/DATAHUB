@@ -30,7 +30,7 @@ def _compute_column_stats(series: pd.Series) -> Dict[str, Any]:
         "unique_count": int(series.nunique()),
     }
 
-    if pd.api.types.is_numeric_dtype(series):
+    if pd.api.types.is_numeric_dtype(series) and not pd.api.types.is_bool_dtype(series):
         clean = series.dropna()
         if len(clean) > 0:
             stats.update({
@@ -44,7 +44,9 @@ def _compute_column_stats(series: pd.Series) -> Dict[str, Any]:
                 "skewness": round(float(scipy_stats.skew(clean)), 4),
                 "kurtosis": round(float(scipy_stats.kurtosis(clean)), 4),
             })
-    elif pd.api.types.is_string_dtype(series) or pd.api.types.is_object_dtype(series):
+    elif (pd.api.types.is_string_dtype(series) or 
+          pd.api.types.is_object_dtype(series) or 
+          pd.api.types.is_bool_dtype(series)):
         top_vals = series.value_counts().head(5).to_dict()
         stats["top_values"] = {str(k): int(v) for k, v in top_vals.items()}
 
@@ -80,6 +82,7 @@ def extract_metadata_from_dataframe(df: pd.DataFrame) -> Dict[str, Any]:
     return {
         "row_count": len(df),
         "column_count": len(df.columns),
+        "duplicate_rows": int(df.duplicated().sum()),
         "columns_schema": column_schema,
         "statistics": statistics,
         "distributions": distributions,
