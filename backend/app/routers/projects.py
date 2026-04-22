@@ -112,6 +112,7 @@ def project_log(
                     except: all_match = False; break
                 if not all_match: continue
             entry["metadata"].append({
+                "id": m.id,
                 "file_name": st.get("file_name"),
                 "row_count": st.get("row_count"),
                 "column_count": st.get("column_count"),

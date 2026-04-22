@@ -5,7 +5,7 @@ import {
   LayoutDashboard, Database, FolderGit2, Bot, Shield,  
   UploadCloud, Search, LogOut, ChevronRight, Activity, 
   FileJson, FileSpreadsheet, Loader2, Link, Server, CheckCircle2,
-  XCircle, Send, ArrowLeft
+  XCircle, Send, ArrowLeft, Download
 } from 'lucide-react';
 
 const API = 'http://localhost:8000';
@@ -222,7 +222,7 @@ function App() {
               <DatasetDetail token={token} onUnauthorized={handleUnauthorized} metadataId={selectedMetadataId} onBack={() => setSelectedMetadataId(null)} /> :
               <ExploreTab token={token} onUnauthorized={handleUnauthorized} onSelect={setSelectedMetadataId} />
           )}
-          {currentSection === 'projects' && <ProjectsTab token={token} onUnauthorized={handleUnauthorized} />}
+          {currentSection === 'projects' && <ProjectsTab token={token} onUnauthorized={handleUnauthorized} onSelect={(id) => { setCurrentSection('explore'); setSelectedMetadataId(id); }} />}
           {currentSection === 'ai' && <AiChatTab token={token} onUnauthorized={handleUnauthorized} />}
           {currentSection === 'dba' && <DbaConsoleTab token={token} onUnauthorized={handleUnauthorized} />}
         </div>
@@ -651,7 +651,7 @@ function DatasetDetail({ token, metadataId, onBack, onUnauthorized }) {
   );
 }
 
-function ProjectsTab({ token, onUnauthorized }) {
+function ProjectsTab({ token, onSelect, onUnauthorized }) {
   const [projects, setProjects] = useState([]);
   const [selectedProject, setSelectedProject] = useState(null);
   const [commits, setCommits] = useState([]);
@@ -711,7 +711,7 @@ function ProjectsTab({ token, onUnauthorized }) {
         {loading ? <p>Loading commit graph...</p> : (
           <div className="commit-list">
             {commits.map(c => (
-              <div key={c.commit_hash} className="card commit-card" style={{ borderLeft: '4px solid var(--accent-primary)', marginBottom: '1rem' }}>
+              <div key={c.commit_hash} className="card commit-card" onClick={() => { if (c.metadata && c.metadata.length > 0 && c.metadata[0].id) { onSelect(c.metadata[0].id); } }} style={{ borderLeft: '4px solid var(--accent-primary)', marginBottom: '1rem', cursor: 'pointer' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
                   <code style={{ background: 'rgba(0,0,0,0.3)', padding: '4px 8px', borderRadius: '4px', color: 'var(--accent-primary)' }}>{c.commit_hash.slice(0, 10)}</code>
                   <span className="muted">{new Date(c.created_at).toLocaleString()}</span>
@@ -721,7 +721,7 @@ function ProjectsTab({ token, onUnauthorized }) {
                   Author: <span style={{ color: 'white' }}>{c.author}</span> · Branch: <span className="badge badge-blue">{c.branch}</span>
                 </div>
                 {(c.metadata || []).map((m, idx) => (
-                  <div key={idx} style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '0.85rem' }}>
+                  <div key={idx} onClick={(e) => { e.stopPropagation(); if (m.id) { onSelect(m.id); } }} style={{ marginTop: '1rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', fontSize: '0.85rem', cursor: 'pointer' }}>
                     <strong>{m.file_name}</strong>: {formatNumber(m.row_count)} rows, {formatNumber(m.column_count)} columns.
                     {m.ai_summary && <p style={{ marginTop: '0.5rem', fontStyle: 'italic', opacity: 0.8 }}>{m.ai_summary.slice(0, 100)}...</p>}
                   </div>
@@ -760,6 +760,7 @@ function DbaConsoleTab({ token, onUnauthorized }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -792,12 +793,68 @@ function DbaConsoleTab({ token, onUnauthorized }) {
     };
   }, [token, onUnauthorized]);
 
+  const filteredLogs = logs.filter(l => 
+    (l.user || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (l.action || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+    (l.table_name || '').toLowerCase().includes(searchTerm.toLowerCase())
+  );
+  
+  const handleExport = () => {
+    const csvContent = "data:text/csv;charset=utf-8," 
+      + "Date,User,Action,Table,Details\n"
+      + filteredLogs.map(l => `${new Date(l.performed_at).toISOString()},${l.user},${l.action},${l.table_name},"${JSON.stringify(l.details || {}).replace(/"/g, '""')}"`).join("\n");
+      
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", "dba_audit_logs.csv");
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+  };
+
   return (
     <div>
-      <h1>DBA Audit Logs</h1>
-      <p style={{ marginBottom: '2rem' }}>System-wide immutable ledger of all metadata modifications.</p>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2.5rem' }}>
+        <div>
+          <h1>DBA Audit Logs</h1>
+          <p>System-wide immutable ledger of all metadata modifications.</p>
+        </div>
+        <button onClick={handleExport} className="btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '8px', height: 'fit-content' }}>
+          <Download size={16} /> Export CSV
+        </button>
+      </div>
+
       {error && <p style={{ color: 'var(--danger)', marginBottom: '1rem' }}>{error}</p>}
       
+      <div className="stats-grid" style={{ marginBottom: '2.5rem' }}>
+        <div className="card stat-card compact">
+          <div className="stat-value">{logs.length}</div>
+          <p>Total Logged Actions</p>
+        </div>
+        <div className="card stat-card compact">
+          <div className="stat-value">{new Set(logs.map(l => l.user)).size}</div>
+          <p>Unique Actors</p>
+        </div>
+        <div className="card stat-card compact">
+          <div className="stat-value">{logs.filter(l => l.action === 'COMMIT').length}</div>
+          <p>Data Commits</p>
+        </div>
+      </div>
+
+      <div className="form-group" style={{ marginBottom: '1.5rem', display: 'flex', gap: '10px' }}>
+        <div style={{ flex: 1, position: 'relative' }}>
+          <Search size={18} style={{ position: 'absolute', left: '16px', top: '14px', color: 'var(--text-muted)' }} />
+          <input 
+            className="form-input" 
+            style={{ paddingLeft: '44px' }} 
+            placeholder="Search logs by user, action, or affected table..." 
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+          />
+        </div>
+      </div>
+
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
         <table style={{ width: '100%', borderCollapse: 'collapse' }}>
           <thead style={{ background: 'rgba(255,255,255,0.05)' }}>
@@ -810,16 +867,21 @@ function DbaConsoleTab({ token, onUnauthorized }) {
             </tr>
           </thead>
           <tbody>
-            {logs.map(l => (
+            {filteredLogs.map(l => (
               <tr key={l.id} className="tr-row">
                 <td className="td-cell muted">{new Date(l.performed_at).toLocaleString()}</td>
                 <td className="td-cell"><strong>{l.user}</strong></td>
                 <td className="td-cell"><span className={`badge ${l.action === 'COMMIT' ? 'badge-green' : 'badge-blue'}`}>{l.action}</span></td>
-                <td className="td-cell muted">{l.table_name}</td>
-                <td className="td-cell small">{JSON.stringify(l.details)}</td>
+                <td className="td-cell muted">{l.table_name || '-'}</td>
+                <td className="td-cell small">
+                  <pre style={{ margin: 0, padding: '12px', background: 'rgba(0,0,0,0.3)', borderRadius: '6px', overflowX: 'auto', maxWidth: '350px', border: '1px solid var(--border-light)' }}>
+                    {JSON.stringify(l.details, null, 2)}
+                  </pre>
+                </td>
               </tr>
             ))}
             {loading && <tr><td colSpan="5" className="td-cell" style={{ textAlign: 'center' }}>Syncing with database logs...</td></tr>}
+            {!loading && filteredLogs.length === 0 && <tr><td colSpan="5" className="td-cell" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>No audit logs matched your search filters.</td></tr>}
           </tbody>
         </table>
       </div>
@@ -831,8 +893,8 @@ function AiChatTab({ token, onUnauthorized }) {
   const [msg, setMsg] = useState('');
   const [chat, setChat] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [datasets, setDatasets] = useState([]);
-  const [selectedDatasetId, setSelectedDatasetId] = useState('');
+  const [projects, setProjects] = useState([]);
+  const [selectedProjectId, setSelectedProjectId] = useState('');
   const chatEndRef = React.useRef(null);
   const scrollRef = React.useRef(null);
 
@@ -851,22 +913,22 @@ function AiChatTab({ token, onUnauthorized }) {
   useEffect(() => {
     let cancelled = false;
 
-    async function loadDatasets() {
+    async function loadProjects() {
       try {
-        const data = await fetchJson(`${API}/metadata/`, {
+        const data = await fetchJson(`${API}/projects/`, {
           headers: createAuthHeaders(token),
         });
         if (cancelled) return;
-        setDatasets(Array.isArray(data) ? data : []);
+        setProjects(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error(err);
         if (cancelled) return;
         if (handleUnauthorizedError(err, onUnauthorized)) return;
-        setDatasets([]);
+        setProjects([]);
       }
     }
 
-    loadDatasets();
+    loadProjects();
 
     return () => {
       cancelled = true;
@@ -886,7 +948,7 @@ function AiChatTab({ token, onUnauthorized }) {
         method: 'POST', headers: createAuthHeaders(token, { 'Content-Type': 'application/json' }),
         body: JSON.stringify({ 
           question: q, 
-          metadata_id: selectedDatasetId ? parseInt(selectedDatasetId) : null 
+          project_id: selectedProjectId ? parseInt(selectedProjectId) : null 
         })
       });
       setChat(c => [...c, { role: 'bot', text: data?.answer || 'No response received.' }]);
@@ -901,18 +963,18 @@ function AiChatTab({ token, onUnauthorized }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
         <div>
           <h1>AI Data Agent</h1>
-          <p>Ask questions about any of your committed datasets.</p>
+          <p>Ask questions about any of your committed repositories.</p>
         </div>
         <div className="form-group" style={{ margin: 0, minWidth: '300px' }}>
           <select 
             className="form-input" 
-            value={selectedDatasetId} 
-            onChange={e => setSelectedDatasetId(e.target.value)}
+            value={selectedProjectId} 
+            onChange={e => setSelectedProjectId(e.target.value)}
             style={{ height: '45px' }}
           >
-            <option value="">Select a dataset for context (Optional)</option>
-            {datasets.map(d => (
-              <option key={d.id} value={d.id}>{d.file_name} (ID: {d.id})</option>
+            <option value="">Select a repository for context (Optional)</option>
+            {projects.map(p => (
+              <option key={p.id} value={p.id}>{p.name}</option>
             ))}
           </select>
         </div>
